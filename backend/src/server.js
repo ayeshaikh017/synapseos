@@ -6,6 +6,7 @@ const dotenv = require("dotenv");
 const connectDB = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const protect = require("./middleware/authMiddleware");
+const roleMiddleware = require("./middleware/roleMiddleware");
 
 dotenv.config();
 
@@ -36,6 +37,21 @@ app.get("/api/protected-test", protect, (req, res) => {
     user: req.user
   });
 });
+app.get(
+    "/api/admin-test",
+    protect,
+    roleMiddleware("admin"),
+    (req, res) => {
+        res.status(200).json({
+            success: true,
+            message: "Admin access granted",
+            data: {
+                userId: req.user.userId,
+                role: req.user.role
+            }
+        });
+    }
+);
 const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
