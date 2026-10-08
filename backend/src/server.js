@@ -9,6 +9,12 @@ const protect = require("./middleware/authMiddleware");
 const roleMiddleware = require("./middleware/roleMiddleware");
 const projectRoutes = require("./routes/projectRoutes");
 const taskRoutes = require("./routes/taskRoutes");
+const sprintRoutes = require("./routes/sprintRoutes");
+const documentRoutes = require("./routes/documentRoutes");
+const meetingRoutes = require("./routes/meetingRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
+const githubRoutes = require("./routes/githubRoutes");
+const aiRoutes = require("./routes/aiRoutes");
 
 dotenv.config();
 
@@ -20,6 +26,12 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/projects", projectRoutes);
 app.use("/api", taskRoutes);
+app.use("/api", sprintRoutes);
+app.use("/api", documentRoutes);
+app.use("/api", meetingRoutes);
+app.use("/api", notificationRoutes);
+app.use("/api", githubRoutes);
+app.use("/api/ai", aiRoutes);
 
 app.get("/", (req, res) => {
   res.json({
@@ -56,6 +68,32 @@ app.get(
         });
     }
 );
+
+// Unknown routes -> JSON 404 (same error format as the rest of the API)
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: "Route not found"
+  });
+});
+
+// Last-resort error handler (e.g. malformed JSON body). Never leaks details.
+app.use((err, req, res, next) => {
+  if (err && err.type === "entity.parse.failed") {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid JSON in request body"
+    });
+  }
+
+  console.error("Unhandled error:", err && err.message);
+
+  return res.status(500).json({
+    success: false,
+    message: "Server error"
+  });
+});
+
 const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
