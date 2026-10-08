@@ -583,67 +583,62 @@ unless discussed with the backend developer.
 ---
 
 # 17. Projects API
-
-Base route:
-
-```text
-/api/projects
-```
-
 ## Get all projects
 
 ```http
 GET /api/projects
 ```
 
----
+### Authentication
 
-## Create project
+Required.
 
 ```http
-POST /api/projects
+Authorization: Bearer <JWT_TOKEN>
 ```
 
-Example request:
+### Request body
+
+No request body.
+
+### Access rule
+
+The backend returns only projects where the logged-in user is:
+
+- the project owner, OR
+- included in the project's `members` array.
+
+### Success response
 
 ```json
 {
-  "name": "SynapseOS",
-  "description": "AI-powered intelligent workspace"
+  "success": true,
+  "message": "Projects fetched successfully",
+  "data": {
+    "projects": []
+  }
 }
 ```
 
----
+If the logged-in user has accessible projects, they are returned inside the `projects` array.
 
-## Get one project
+If the logged-in user is authenticated but has no accessible projects, the `projects` array is empty.
 
-```http
-GET /api/projects/:projectId
+### Unauthorized response
+
+```json
+{
+  "success": false,
+  "message": "Not authorized. Token required."
+}
 ```
 
-Example:
+### Tested
 
-```text
-GET /api/projects/65abc123
-```
-
----
-
-## Update project
-
-```http
-PUT /api/projects/:projectId
-```
-
----
-
-## Delete project
-
-```http
-DELETE /api/projects/:projectId
-```
-
----
+- Owner can fetch their project.
+- Project member can fetch the project.
+- Authenticated user who is neither owner nor member receives an empty project list.
+- Request without JWT is rejected.
 
 # 18. Important Project ID Naming
 
@@ -1863,6 +1858,8 @@ Authorization: Bearer <token>
 
 # 56. Current Backend Status
 
+# 56. Current Backend Status
+
 ### Implemented / Initial Setup
 
 ```text
@@ -1876,15 +1873,24 @@ Authorization: Bearer <token>
 ✓ Basic server
 ✓ / endpoint
 ✓ /api/health endpoint
+✓ User model
+✓ User registration
+✓ User login
+✓ JWT authentication
+✓ JWT middleware
+✓ /api/auth/me
+✓ Role-based authorization
+✓ Project model
+✓ POST /api/projects
+✓ GET /api/projects
 ```
 
 ### Planned / To Be Implemented
 
 ```text
-□ User model
-□ Authentication
-□ JWT middleware
-□ Project APIs
+□ GET /api/projects/:projectId
+□ PUT /api/projects/:projectId
+□ DELETE /api/projects/:projectId
 □ Task APIs
 □ Sprint APIs
 □ Document APIs
@@ -1897,8 +1903,6 @@ Authorization: Bearer <token>
 ```
 
 **Important:** A route documented above is a planned contract unless it is marked as implemented in the backend code.
-
----
 
 # 57. If an API Changes
 
@@ -2156,3 +2160,249 @@ member
 MongoDB Atlas
 Database: synapseos
 ```
+
+## Get Single Project API
+
+Status: Implemented
+
+GET /api/projects/:projectId
+
+Authentication:
+Authorization: Bearer <JWT_TOKEN>
+
+Route parameter:
+projectId — MongoDB ID of the project.
+
+Request body:
+None.
+
+Success response:
+{
+  "success": true,
+  "message": "Project fetched successfully",
+  "data": {
+    "project": {
+      "_id": "...",
+      "name": "...",
+      "description": "...",
+      "owner": "...",
+      "members": [],
+      "status": "planning",
+      "createdAt": "...",
+      "updatedAt": "..."
+    }
+  }
+}
+
+Error response:
+{
+  "success": false,
+  "message": "Project not found"
+}
+
+Access:
+The authenticated user must be the project owner or a project member.
+
+
+## Update Project
+
+### Endpoint
+
+PUT /api/projects/:projectId
+
+### Authentication
+
+Requires JWT authentication.
+
+Header:
+
+Authorization: Bearer <JWT_TOKEN>
+
+### Request Body
+
+Allowed fields:
+
+- name
+- description
+- members
+- status
+- startDate
+- endDate
+
+The `owner` field cannot be updated.
+
+### Example Request
+
+PUT /api/projects/6ac7f26f0fbfad13252f1315
+
+```json
+{
+  "name": "SynapseOS AI Workspace",
+  "description": "AI-powered workspace for teams and students",
+  "status": "active",
+  "startDate": "2026-10-09",
+  "endDate": "2027-05-31",
+  "members": [
+    "USER_ID"
+  ]
+}
+
+Success Response
+{
+  "success": true,
+  "message": "Project updated successfully",
+  "data": {
+    "project": {}
+  }
+}
+
+Invalid Project Data
+{
+  "success": false,
+  "message": "Invalid project data"
+}
+
+Status code: 400
+Project Not Found
+{
+  "success": false,
+  "message": "Project not found"
+}
+
+Status code: 404
+
+Add it and reply **`done`**.
+
+Then we immediately start **DELETE Project**.
+
+
+
+ **Task CRUD is working.**
+
+We now have all 4 core Task APIs:
+
+```text
+POST   /api/projects/:projectId/tasks  ✅
+GET    /api/projects/:projectId/tasks  ✅
+PUT    /api/tasks/:taskId              ✅
+DELETE /api/tasks/:taskId              ✅
+```
+
+
+
+## Step 16 — Action 13: Document Tasks
+
+Open:
+
+```text
+docs/BACKEND_GUIDELINES.md
+```
+
+Add this at the end:
+
+```md
+## Task APIs
+
+### Create Task
+
+POST /api/projects/:projectId/tasks
+
+Authentication: Required
+
+Request body:
+
+```json
+{
+  "title": "Build Task API",
+  "description": "Implement task APIs",
+  "status": "todo",
+  "priority": "high"
+}
+```
+
+Allowed status values:
+
+- todo
+- in_progress
+- completed
+
+Allowed priority values:
+
+- low
+- medium
+- high
+
+Success response:
+
+```json
+{
+  "success": true,
+  "message": "Task created successfully",
+  "data": {
+    "task": {}
+  }
+}
+```
+
+### Get Project Tasks
+
+GET /api/projects/:projectId/tasks
+
+Authentication: Required
+
+Success response:
+
+```json
+{
+  "success": true,
+  "message": "Tasks fetched successfully",
+  "data": {
+    "tasks": []
+  }
+}
+```
+
+### Update Task
+
+PUT /api/tasks/:taskId
+
+Authentication: Required
+
+Allowed fields:
+
+- title
+- description
+- assignedTo
+- status
+- priority
+- dueDate
+
+Success response:
+
+```json
+{
+  "success": true,
+  "message": "Task updated successfully",
+  "data": {
+    "task": {}
+  }
+}
+```
+
+### Delete Task
+
+DELETE /api/tasks/:taskId
+
+Authentication: Required
+
+Success response:
+
+```json
+{
+  "success": true,
+  "message": "Task deleted successfully",
+  "data": {}
+}
+```
+```
+
