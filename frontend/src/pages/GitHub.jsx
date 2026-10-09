@@ -1,219 +1,127 @@
-import {
-  GitBranch,
-  GitCommit,
-  GitPullRequest,
-  CircleDot,
-  ExternalLink,
-  RefreshCw,
-} from "lucide-react";
-
-const commits = [
-  {
-    hash: "8f2a91",
-    message: "Add authentication middleware",
-    author: "Ayesha",
-    time: "2 hours ago",
-  },
-  {
-    hash: "91ac42",
-    message: "Create project API",
-    author: "Simran",
-    time: "5 hours ago",
-  },
-  {
-    hash: "5bd812",
-    message: "Connect MongoDB configuration",
-    author: "Dolly",
-    time: "Yesterday",
-  },
-  {
-    hash: "32ce10",
-    message: "Initialize backend project",
-    author: "Shivangee",
-    time: "2 days ago",
-  },
-];
-
-const issues = [
-  {
-    title: "Connect GitHub repository to project",
-    label: "feature",
-  },
-  {
-    title: "Handle expired JWT token",
-    label: "bug",
-  },
-  {
-    title: "Add document search endpoint",
-    label: "feature",
-  },
-];
+import { useCallback, useEffect, useState } from "react";
+import { CircleDot, ExternalLink, GitBranch, GitFork, RefreshCw, Star, Unlink } from "lucide-react";
+import { githubApi } from "../api/services";
+import { useProjects } from "../context/ProjectContext";
+import { ErrorBanner, Field, Loading, NeedProject, PageHeader, PrimaryButton, ProjectPicker, SecondaryButton, inputClass } from "../components/ui";
+import { errMsg, timeAgo } from "../utils/format";
 
 function GitHub() {
+  const { activeProjectId, loading: projectsLoading } = useProjects();
+  const [state, setState] = useState(null); // { linked, integration, repository }
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [url, setUrl] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!activeProjectId) return;
+    setLoading(true);
+    setError("");
+    setState(null);
+    try {
+      setState(await githubApi.get(activeProjectId));
+    } catch (err) {
+      // e.g. repo deleted or GitHub rate-limited: keep the form usable
+      setError(errMsg(err, "Could not load repository"));
+    } finally {
+      setLoading(false);
+    }
+  }, [activeProjectId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const link = async (event) => {
+    event.preventDefault();
+    if (!url.trim()) return setError("Paste a repository URL first");
+    setSaving(true);
+    setError("");
+    try {
+      await githubApi.link(activeProjectId, url.trim());
+      setUrl("");
+      await load();
+    } catch (err) {
+      setError(errMsg(err, "Could not link repository"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const unlink = async () => {
+    setSaving(true);
+    setError("");
+    try {
+      await githubApi.unlink(activeProjectId);
+      await load();
+    } catch (err) {
+      setError(errMsg(err, "Could not unlink repository"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const repo = state?.repository;
+
   return (
-    <div className="mx-auto max-w-7xl">
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-sm font-medium text-zinc-400">
-            Development
-          </p>
+    <div className="mx-auto max-w-5xl space-y-6">
+      <PageHeader
+        eyebrow="Development"
+        title="GitHub integration"
+        text="Link a repository to the project and see its live details."
+        actions={activeProjectId && (<><ProjectPicker /><SecondaryButton onClick={load}><RefreshCw size={16} />Refresh</SecondaryButton></>)}
+      />
 
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight text-zinc-950">
-            GitHub integration
-          </h1>
-
-          <p className="mt-2 text-sm text-zinc-500">
-            Track repository activity without leaving the project workspace.
-          </p>
-        </div>
-
-        <button
-          type="button"
-          className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
-        >
-          <RefreshCw size={16} />
-          Refresh
-        </button>
-      </div>
-
-      {/* Repository */}
-      <section className="mt-8 rounded-xl border border-zinc-200 bg-white p-6">
-        <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
-          <div className="flex gap-4">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-zinc-900 text-white">
-              <GitBranch size={19} />
-            </div>
-
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-lg font-semibold text-zinc-950">
-                  synapseos
-                </h2>
-
-                <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-[10px] font-medium text-zinc-600">
-                  Connected
-                </span>
-              </div>
-
-              <p className="mt-1 text-sm text-zinc-500">
-                Shivangee56 / synapseos
-              </p>
-
-              <p className="mt-2 text-xs text-zinc-400">
-                Default branch: main
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            className="inline-flex items-center gap-2 text-sm font-medium text-zinc-600 hover:text-zinc-950"
-          >
-            Open on GitHub
-            <ExternalLink size={14} />
-          </button>
-        </div>
-
-        <div className="mt-6 grid gap-3 border-t border-zinc-100 pt-5 sm:grid-cols-3">
-          <div className="rounded-lg border border-zinc-100 p-4">
-            <div className="flex items-center gap-2 text-zinc-500">
-              <GitCommit size={16} />
-              <span className="text-xs">Commits</span>
-            </div>
-
-            <p className="mt-2 text-xl font-semibold text-zinc-950">
-              24
-            </p>
-          </div>
-
-          <div className="rounded-lg border border-zinc-100 p-4">
-            <div className="flex items-center gap-2 text-zinc-500">
-              <CircleDot size={16} />
-              <span className="text-xs">Open issues</span>
-            </div>
-
-            <p className="mt-2 text-xl font-semibold text-zinc-950">
-              6
-            </p>
-          </div>
-
-          <div className="rounded-lg border border-zinc-100 p-4">
-            <div className="flex items-center gap-2 text-zinc-500">
-              <GitPullRequest size={16} />
-              <span className="text-xs">Open PRs</span>
-            </div>
-
-            <p className="mt-2 text-xl font-semibold text-zinc-950">
-              3
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Activity */}
-      <div className="mt-6 grid gap-6 xl:grid-cols-[1.4fr_1fr]">
-        <section className="rounded-xl border border-zinc-200 bg-white">
-          <div className="border-b border-zinc-100 px-5 py-4">
-            <h2 className="text-base font-semibold text-zinc-950">
-              Recent commits
-            </h2>
-
-            <p className="mt-1 text-sm text-zinc-500">
-              Latest development activity.
-            </p>
-          </div>
-
-          <div className="divide-y divide-zinc-100">
-            {commits.map((commit) => (
-              <div
-                key={commit.hash}
-                className="flex gap-4 px-5 py-4"
-              >
-                <GitCommit
-                  size={17}
-                  className="mt-0.5 shrink-0 text-zinc-400"
-                />
-
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-zinc-900">
-                    {commit.message}
-                  </p>
-
-                  <p className="mt-1 text-xs text-zinc-400">
-                    {commit.hash} · {commit.author} · {commit.time}
-                  </p>
+      {!activeProjectId ? <NeedProject loading={projectsLoading} /> : (
+        <>
+          <ErrorBanner message={error} />
+          {loading ? <Loading label="Fetching repository..." /> : repo ? (
+            <section className="rounded-xl border border-zinc-200 bg-white p-6">
+              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-zinc-900 text-white"><GitBranch size={19} /></div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-lg font-semibold text-zinc-950">{repo.fullName?.split("/")[1]}</h2>
+                      <span className="rounded-full bg-zinc-900 px-2.5 py-0.5 text-[11px] font-medium text-white">Connected</span>
+                      {repo.isPrivate && <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-[11px] text-zinc-600">Private</span>}
+                    </div>
+                    <p className="mt-1 text-sm text-zinc-500">{repo.fullName}</p>
+                    {repo.description && <p className="mt-2 max-w-xl text-sm text-zinc-600">{repo.description}</p>}
+                    <p className="mt-2 text-xs text-zinc-400">
+                      Default branch: {repo.defaultBranch}{repo.language ? ` · ${repo.language}` : ""} · Last push {timeAgo(repo.pushedAt)}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <a href={repo.htmlUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50">Open on GitHub<ExternalLink size={14} /></a>
+                  <SecondaryButton onClick={unlink} disabled={saving}><Unlink size={14} />Unlink</SecondaryButton>
                 </div>
               </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="rounded-xl border border-zinc-200 bg-white">
-          <div className="border-b border-zinc-100 px-5 py-4">
-            <h2 className="text-base font-semibold text-zinc-950">
-              Open issues
-            </h2>
-
-            <p className="mt-1 text-sm text-zinc-500">
-              Issues that need attention.
-            </p>
-          </div>
-
-          <div className="divide-y divide-zinc-100">
-            {issues.map((issue) => (
-              <div key={issue.title} className="px-5 py-4">
-                <p className="text-sm font-medium leading-5 text-zinc-900">
-                  {issue.title}
-                </p>
-
-                <span className="mt-2 inline-block rounded-full bg-zinc-100 px-2.5 py-1 text-[10px] font-medium text-zinc-600">
-                  {issue.label}
-                </span>
+              <div className="mt-6 grid gap-4 border-t border-zinc-100 pt-5 sm:grid-cols-3">
+                <div className="rounded-lg bg-zinc-50 p-4"><div className="flex items-center gap-2 text-sm text-zinc-500"><Star size={16} />Stars</div><p className="mt-2 text-2xl font-semibold text-zinc-950">{repo.stars}</p></div>
+                <div className="rounded-lg bg-zinc-50 p-4"><div className="flex items-center gap-2 text-sm text-zinc-500"><GitFork size={16} />Forks</div><p className="mt-2 text-2xl font-semibold text-zinc-950">{repo.forks}</p></div>
+                <div className="rounded-lg bg-zinc-50 p-4"><div className="flex items-center gap-2 text-sm text-zinc-500"><CircleDot size={16} />Open issues</div><p className="mt-2 text-2xl font-semibold text-zinc-950">{repo.openIssues}</p></div>
               </div>
-            ))}
-          </div>
-        </section>
-      </div>
+            </section>
+          ) : (
+            <section className="rounded-xl border border-zinc-200 bg-white p-6">
+              {state?.integration && (
+                <div className="mb-5 flex items-center justify-between rounded-lg bg-zinc-50 px-4 py-3 text-sm text-zinc-600">
+                  <span>Linked: {state.integration.repositoryUrl}</span>
+                  <button type="button" onClick={unlink} className="font-medium underline underline-offset-2">Unlink</button>
+                </div>
+              )}
+              <h2 className="text-base font-semibold text-zinc-950">Link a repository</h2>
+              <p className="mt-1 text-sm text-zinc-500">One GitHub repository can be linked per project.</p>
+              <form onSubmit={link} className="mt-5 space-y-4">
+                <Field label="Repository URL" hint="Format: https://github.com/<owner>/<repository>">
+                  <input value={url} onChange={(e) => setUrl(e.target.value)} className={inputClass} placeholder="https://github.com/ayeshaikh017/synapseos" />
+                </Field>
+                <PrimaryButton type="submit" disabled={saving}>{saving ? "Linking..." : "Link repository"}</PrimaryButton>
+              </form>
+            </section>
+          )}
+        </>
+      )}
     </div>
   );
 }

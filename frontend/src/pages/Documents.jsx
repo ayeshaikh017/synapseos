@@ -1,296 +1,169 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { CalendarDays, FileText, Pencil, Plus, Search, Trash2, UserRound } from "lucide-react";
+import { documentApi } from "../api/services";
+import { useProjects } from "../context/ProjectContext";
+import { useAuth } from "../context/AuthContext";
 import {
-  CalendarDays,
-  FileText,
-  Folder,
-  MoreHorizontal,
-  Plus,
-  Search,
-  UserRound,
-} from "lucide-react";
+  ConfirmDelete,
+  EmptyState,
+  ErrorBanner,
+  Field,
+  Loading,
+  Modal,
+  NeedProject,
+  PageHeader,
+  PrimaryButton,
+  ProjectPicker,
+  SecondaryButton,
+  inputClass,
+} from "../components/ui";
+import { errMsg, timeAgo } from "../utils/format";
 
-const documents = [
-  {
-    id: "doc-1",
-    title: "Project Requirements",
-    description:
-      "Functional requirements, project scope and system objectives for SynapseOS.",
-    type: "Requirements",
-    updated: "Updated 2 hours ago",
-    author: "Ayesha",
-    initials: "AS",
-  },
-  {
-    id: "doc-2",
-    title: "API Documentation",
-    description:
-      "API routes, request structures and integration notes for the project backend.",
-    type: "Technical",
-    updated: "Updated yesterday",
-    author: "Simran",
-    initials: "SS",
-  },
-  {
-    id: "doc-3",
-    title: "Sprint 04 Notes",
-    description:
-      "Current sprint goals, decisions, completed work and pending tasks.",
-    type: "Sprint",
-    updated: "Updated yesterday",
-    author: "Shivangee",
-    initials: "SP",
-  },
-  {
-    id: "doc-4",
-    title: "System Architecture",
-    description:
-      "Frontend, backend, database, AI and GitHub integration architecture.",
-    type: "Technical",
-    updated: "Updated 2 days ago",
-    author: "Dolly",
-    initials: "DP",
-  },
-  {
-    id: "doc-5",
-    title: "Meeting Notes — Project Review",
-    description:
-      "Discussion points, decisions and action items from the latest project review.",
-    type: "Meeting",
-    updated: "Updated 3 days ago",
-    author: "Ayesha",
-    initials: "AS",
-  },
-  {
-    id: "doc-6",
-    title: "AI & RAG Design",
-    description:
-      "Notes covering project knowledge retrieval, AI assistance and planned intelligent features.",
-    type: "AI",
-    updated: "Updated 4 days ago",
-    author: "Shivangee",
-    initials: "SP",
-  },
-];
+function DocumentForm({ doc, projectId, onClose, onSaved }) {
+  const [title, setTitle] = useState(doc?.title || "");
+  const [content, setContent] = useState(doc?.content || "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
-const filters = [
-  "All",
-  "Requirements",
-  "Technical",
-  "Sprint",
-  "Meeting",
-  "AI",
-];
+  const submit = async (event) => {
+    event.preventDefault();
+    if (!title.trim()) return setError("Document title is required");
 
-function DocumentIcon({ type }) {
-  const iconClass = "text-zinc-600";
+    setSaving(true);
+    setError("");
+    try {
+      const payload = { title: title.trim(), content };
+      if (doc) await documentApi.update(doc._id, payload);
+      else await documentApi.create(projectId, payload);
+      await onSaved();
+      onClose();
+    } catch (err) {
+      setError(errMsg(err, "Could not save document"));
+      setSaving(false);
+    }
+  };
 
-  if (type === "Technical") {
-    return <Folder size={18} className={iconClass} strokeWidth={1.8} />;
-  }
-
-  return <FileText size={18} className={iconClass} strokeWidth={1.8} />;
-}
-
-function DocumentRow({ document }) {
   return (
-    <div className="group flex flex-col gap-4 px-5 py-5 transition hover:bg-zinc-50 sm:flex-row sm:items-center">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-zinc-100">
-        <DocumentIcon type={document.type} />
-      </div>
-
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-sm font-semibold text-zinc-950">
-            {document.title}
-          </h2>
-
-          <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-[10px] font-medium text-zinc-600">
-            {document.type}
-          </span>
+    <Modal title={doc ? "Edit document" : "New document"} subtitle="Project knowledge, requirements and notes." onClose={onClose}>
+      <form onSubmit={submit} className="space-y-5">
+        <ErrorBanner message={error} />
+        <Field label="Title"><input value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} placeholder="e.g. API Documentation" /></Field>
+        <Field label="Content"><textarea value={content} onChange={(e) => setContent(e.target.value)} rows={10} className={`${inputClass} resize-y font-mono text-[13px]`} placeholder="Write your document..." /></Field>
+        <div className="flex justify-end gap-3 border-t border-zinc-100 pt-5">
+          <SecondaryButton onClick={onClose}>Cancel</SecondaryButton>
+          <PrimaryButton type="submit" disabled={saving}>{saving ? "Saving..." : doc ? "Save changes" : "Create document"}</PrimaryButton>
         </div>
-
-        <p className="mt-1 line-clamp-2 text-sm leading-5 text-zinc-500">
-          {document.description}
-        </p>
-
-        <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-zinc-400">
-          <span className="flex items-center gap-1.5">
-            <CalendarDays size={13} />
-            {document.updated}
-          </span>
-
-          <span className="flex items-center gap-1.5">
-            <UserRound size={13} />
-            {document.author}
-          </span>
-        </div>
-      </div>
-
-      <button
-        type="button"
-        className="self-start rounded-md p-1.5 text-zinc-400 opacity-100 transition hover:bg-zinc-100 hover:text-zinc-700 sm:opacity-0 sm:group-hover:opacity-100"
-      >
-        <MoreHorizontal size={18} />
-      </button>
-    </div>
+      </form>
+    </Modal>
   );
 }
 
 function Documents() {
-  const [activeFilter, setActiveFilter] = useState("All");
+  const { user } = useAuth();
+  const { activeProjectId, loading: projectsLoading } = useProjects();
+  const [documents, setDocuments] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [editing, setEditing] = useState(null);
+  const [viewing, setViewing] = useState(null);
+  const [deleting, setDeleting] = useState(null);
+  const [busy, setBusy] = useState(false);
 
-  const filteredDocuments = useMemo(() => {
-    const searchValue = search.trim().toLowerCase();
+  const load = useCallback(async () => {
+    if (!activeProjectId) return;
+    setLoading(true);
+    setError("");
+    try {
+      const data = await documentApi.list(activeProjectId);
+      setDocuments(data.documents || []);
+    } catch (err) {
+      setError(errMsg(err, "Could not load documents"));
+    } finally {
+      setLoading(false);
+    }
+  }, [activeProjectId]);
 
-    return documents.filter((document) => {
-      const matchesFilter =
-        activeFilter === "All" ||
-        document.type === activeFilter;
+  useEffect(() => { load(); }, [load]);
 
-      const matchesSearch =
-        !searchValue ||
-        document.title.toLowerCase().includes(searchValue) ||
-        document.description.toLowerCase().includes(searchValue) ||
-        document.author.toLowerCase().includes(searchValue);
+  const confirmDelete = async () => {
+    setBusy(true);
+    try {
+      await documentApi.remove(deleting._id);
+      setDeleting(null);
+      await load();
+    } catch (err) {
+      setError(errMsg(err, "Could not delete document"));
+      setDeleting(null);
+    } finally {
+      setBusy(false);
+    }
+  };
 
-      return matchesFilter && matchesSearch;
-    });
-  }, [activeFilter, search]);
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return documents.filter((d) => !q || d.title.toLowerCase().includes(q) || (d.content || "").toLowerCase().includes(q));
+  }, [documents, search]);
 
   return (
-    <div className="mx-auto max-w-6xl">
-      {/* Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-sm font-medium text-zinc-400">
-            Collaboration
-          </p>
+    <div className="mx-auto max-w-7xl space-y-6">
+      <PageHeader
+        eyebrow="Collaboration"
+        title="Documents"
+        text="Keep project knowledge, requirements and notes organized in one place."
+        actions={activeProjectId && (<><ProjectPicker /><PrimaryButton onClick={() => setEditing("new")}><Plus size={16} />New document</PrimaryButton></>)}
+      />
 
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight text-zinc-950">
-            Documents
-          </h1>
-
-          <p className="mt-2 text-sm text-zinc-500">
-            Keep project knowledge, requirements and notes organized in one place.
-          </p>
-        </div>
-
-        <button
-          type="button"
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-800"
-        >
-          <Plus size={16} />
-          New document
-        </button>
-      </div>
-
-      {/* Search */}
-      <div className="mt-8 flex w-full items-center gap-3 rounded-lg border border-zinc-200 bg-white px-3 py-2.5">
-        <Search size={17} className="shrink-0 text-zinc-400" />
-
-        <input
-          type="text"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search documentation..."
-          className="w-full bg-transparent text-sm text-zinc-800 outline-none placeholder:text-zinc-400"
-        />
-      </div>
-
-      {/* Filters */}
-      <div className="mt-4 flex gap-1 overflow-x-auto rounded-lg border border-zinc-200 bg-white p-1">
-        {filters.map((filter) => {
-          const isActive = activeFilter === filter;
-
-          return (
-            <button
-              key={filter}
-              type="button"
-              onClick={() => setActiveFilter(filter)}
-              className={`whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition ${
-                isActive
-                  ? "bg-zinc-900 text-white"
-                  : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800"
-              }`}
-            >
-              {filter}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Recent documents */}
-      <div className="mt-8 flex items-end justify-between">
-        <div>
-          <h2 className="text-base font-semibold text-zinc-950">
-            Recent documents
-          </h2>
-
-          <p className="mt-1 text-sm text-zinc-500">
-            Project knowledge and team documentation.
-          </p>
-        </div>
-
-        <p className="text-xs text-zinc-400">
-          {filteredDocuments.length} documents
-        </p>
-      </div>
-
-      {/* Document list */}
-      <section className="mt-4 overflow-hidden rounded-xl border border-zinc-200 bg-white">
-        {filteredDocuments.length > 0 ? (
-          <div className="divide-y divide-zinc-100">
-            {filteredDocuments.map((document) => (
-              <DocumentRow
-                key={document.id}
-                document={document}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="px-6 py-16 text-center">
-            <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-lg bg-zinc-100">
-              <FileText
-                size={20}
-                className="text-zinc-500"
-              />
-            </div>
-
-            <h2 className="mt-4 text-base font-semibold text-zinc-900">
-              No documents found
-            </h2>
-
-            <p className="mt-1 text-sm text-zinc-500">
-              Try a different search or document category.
-            </p>
-          </div>
-        )}
-      </section>
-
-      {/* RAG knowledge note */}
-      <section className="mt-6 rounded-xl border border-zinc-200 bg-white p-5">
-        <div className="flex gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100">
-            <FileText
-              size={18}
-              className="text-zinc-700"
-              strokeWidth={1.8}
-            />
+      {!activeProjectId ? <NeedProject loading={projectsLoading} /> : (
+        <>
+          <ErrorBanner message={error} onRetry={load} />
+          <div className="flex w-full items-center gap-3 rounded-lg border border-zinc-200 bg-white px-3 py-2.5 lg:max-w-md">
+            <Search size={17} className="shrink-0 text-zinc-400" />
+            <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search documentation..." className="w-full bg-transparent text-sm outline-none placeholder:text-zinc-400" />
           </div>
 
-          <div>
-            <p className="text-sm font-semibold text-zinc-950">
-              Project knowledge
-            </p>
-
-            <p className="mt-1 max-w-3xl text-sm leading-6 text-zinc-500">
-              Project documents can later be used by SynapseOS AI to retrieve
-              relevant information and answer project-specific questions.
-            </p>
+          <div className="flex items-end justify-between">
+            <div><h2 className="text-base font-semibold text-zinc-950">Recent documents</h2><p className="text-xs text-zinc-400">Project knowledge and team documentation.</p></div>
+            <p className="text-sm text-zinc-500">{filtered.length} document{filtered.length === 1 ? "" : "s"}</p>
           </div>
-        </div>
-      </section>
+
+          {loading && documents.length === 0 ? <Loading label="Loading documents..." /> : filtered.length === 0 ? (
+            <EmptyState icon={FileText} title={documents.length === 0 ? "No documents yet" : "No documents found"} text={documents.length === 0 ? "Create the first document for this project." : "Try a different search."} action={documents.length === 0 && <PrimaryButton onClick={() => setEditing("new")}><Plus size={16} />New document</PrimaryButton>} />
+          ) : (
+            <section className="divide-y divide-zinc-100 rounded-xl border border-zinc-200 bg-white">
+              {filtered.map((doc) => (
+                <div key={doc._id} className="flex items-start gap-4 p-5">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-zinc-100"><FileText size={18} className="text-zinc-600" strokeWidth={1.8} /></div>
+                  <button type="button" onClick={() => setViewing(doc)} className="min-w-0 flex-1 text-left">
+                    <h3 className="truncate text-sm font-semibold text-zinc-950">{doc.title}</h3>
+                    <p className="mt-1 line-clamp-2 text-sm leading-5 text-zinc-500">{doc.content || "Empty document"}</p>
+                    <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-zinc-400">
+                      <span className="inline-flex items-center gap-1.5"><CalendarDays size={13} />Updated {timeAgo(doc.updatedAt)}</span>
+                      <span className="inline-flex items-center gap-1.5"><UserRound size={13} />{doc.createdBy === user?._id ? "You" : "Teammate"}</span>
+                    </div>
+                  </button>
+                  <div className="flex shrink-0">
+                    <button type="button" onClick={() => setEditing(doc)} className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"><Pencil size={16} /></button>
+                    <button type="button" onClick={() => setDeleting(doc)} className="rounded-md p-1.5 text-zinc-400 hover:bg-red-50 hover:text-red-600"><Trash2 size={16} /></button>
+                  </div>
+                </div>
+              ))}
+            </section>
+          )}
+        </>
+      )}
+
+      {viewing && (
+        <Modal title={viewing.title} subtitle={`Updated ${timeAgo(viewing.updatedAt)}`} onClose={() => setViewing(null)}>
+          <pre className="whitespace-pre-wrap font-sans text-sm leading-6 text-zinc-700">{viewing.content || "This document is empty."}</pre>
+          <div className="mt-6 flex justify-end gap-3 border-t border-zinc-100 pt-5">
+            <SecondaryButton onClick={() => setViewing(null)}>Close</SecondaryButton>
+            <PrimaryButton onClick={() => { setEditing(viewing); setViewing(null); }}><Pencil size={14} />Edit</PrimaryButton>
+          </div>
+        </Modal>
+      )}
+      {editing && <DocumentForm doc={editing === "new" ? null : editing} projectId={activeProjectId} onClose={() => setEditing(null)} onSaved={load} />}
+      {deleting && <ConfirmDelete what={deleting.title} busy={busy} onCancel={() => setDeleting(null)} onConfirm={confirmDelete} />}
     </div>
   );
 }

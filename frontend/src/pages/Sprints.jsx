@@ -1,410 +1,235 @@
+import { useCallback, useEffect, useState } from "react";
+import { CalendarDays, Clock3, Layers3, Pencil, Plus, Target, Trash2 } from "lucide-react";
+import { sprintApi, taskApi } from "../api/services";
+import { useProjects } from "../context/ProjectContext";
 import {
-  ArrowRight,
-  CalendarDays,
-  CheckCircle2,
-  Clock3,
-  Layers3,
-  MoreHorizontal,
-  Plus,
-  Sparkles,
-  Target,
-} from "lucide-react";
-
-const sprints = [
-  {
-    id: "sprint-04",
-    name: "Sprint 04",
-    start: "08 Oct",
-    end: "12 Oct",
-    status: "active",
-    progress: 78,
-    completed: 14,
-    inProgress: 4,
-    remaining: 3,
-    goals: [
-      { label: "Authentication", done: true },
-      { label: "Project management", done: true },
-      { label: "GitHub integration", done: false },
-      { label: "AI assistant", done: false },
-    ],
-  },
-  {
-    id: "sprint-03",
-    name: "Sprint 03",
-    start: "02 Oct",
-    end: "07 Oct",
-    status: "completed",
-    progress: 100,
-    completed: 16,
-    inProgress: 0,
-    remaining: 0,
-    goals: [
-      { label: "Backend setup", done: true },
-      { label: "MongoDB connection", done: true },
-      { label: "Authentication API", done: true },
-    ],
-  },
-  {
-    id: "sprint-02",
-    name: "Sprint 02",
-    start: "25 Sep",
-    end: "01 Oct",
-    status: "completed",
-    progress: 100,
-    completed: 12,
-    inProgress: 0,
-    remaining: 0,
-    goals: [
-      { label: "Project structure", done: true },
-      { label: "API planning", done: true },
-      { label: "Database design", done: true },
-    ],
-  },
-];
+  ConfirmDelete,
+  EmptyState,
+  ErrorBanner,
+  Field,
+  Loading,
+  Modal,
+  NeedProject,
+  PageHeader,
+  PrimaryButton,
+  ProjectPicker,
+  SecondaryButton,
+  inputClass,
+} from "../components/ui";
+import { daysLeft, errMsg, fmtDate, taskStats, toDateInput } from "../utils/format";
 
 function StatusBadge({ status }) {
-  const active = status === "active";
-
   return (
-    <span
-      className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
-        active
-          ? "bg-zinc-900 text-white"
-          : "bg-zinc-100 text-zinc-600"
-      }`}
-    >
-      {active ? "Active" : "Completed"}
+    <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium capitalize ${status === "active" ? "bg-zinc-900 text-white" : status === "completed" ? "bg-zinc-100 text-zinc-600" : "border border-zinc-200 bg-white text-zinc-500"}`}>
+      {status}
     </span>
   );
 }
 
-function GoalRow({ goal }) {
+function SprintForm({ sprint, projectId, onClose, onSaved }) {
+  const [name, setName] = useState(sprint?.name || "");
+  const [goal, setGoal] = useState(sprint?.goal || "");
+  const [status, setStatus] = useState(sprint?.status || "planned");
+  const [startDate, setStartDate] = useState(toDateInput(sprint?.startDate));
+  const [endDate, setEndDate] = useState(toDateInput(sprint?.endDate));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const submit = async (event) => {
+    event.preventDefault();
+    if (!name.trim()) return setError("Sprint name is required");
+    if (startDate && endDate && endDate < startDate) return setError("End date must not be before start date");
+
+    const payload = { name: name.trim(), goal: goal.trim(), status };
+    payload.startDate = startDate || null;
+    payload.endDate = endDate || null;
+
+    setSaving(true);
+    setError("");
+    try {
+      if (sprint) await sprintApi.update(sprint._id, payload);
+      else await sprintApi.create(projectId, payload);
+      await onSaved();
+      onClose();
+    } catch (err) {
+      setError(errMsg(err, "Could not save sprint"));
+      setSaving(false);
+    }
+  };
+
   return (
-    <div className="flex items-center gap-2.5">
-      {goal.done ? (
-        <CheckCircle2
-          size={16}
-          className="text-zinc-600"
-          strokeWidth={1.8}
-        />
-      ) : (
-        <div className="h-4 w-4 rounded-full border border-zinc-300" />
-      )}
-
-      <span
-        className={`text-sm ${
-          goal.done
-            ? "text-zinc-500 line-through"
-            : "text-zinc-800"
-        }`}
-      >
-        {goal.label}
-      </span>
-    </div>
-  );
-}
-
-function SprintCard({ sprint }) {
-  return (
-    <div className="rounded-xl border border-zinc-200 bg-white">
-      <div className="border-b border-zinc-100 p-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <Layers3
-                size={17}
-                className="text-zinc-500"
-              />
-
-              <h2 className="text-base font-semibold text-zinc-950">
-                {sprint.name}
-              </h2>
-
-              <StatusBadge status={sprint.status} />
-            </div>
-
-            <div className="mt-2 flex items-center gap-2 text-xs text-zinc-400">
-              <CalendarDays size={14} />
-              {sprint.start} — {sprint.end}
-            </div>
-          </div>
-
-          <button
-            type="button"
-            className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
-          >
-            <MoreHorizontal size={18} />
-          </button>
+    <Modal title={sprint ? "Edit sprint" : "Create sprint"} subtitle="Plan a time-boxed block of work." onClose={onClose}>
+      <form onSubmit={submit} className="space-y-5">
+        <ErrorBanner message={error} />
+        <Field label="Sprint name"><input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} placeholder="e.g. Sprint 04" /></Field>
+        <Field label="Goal"><textarea value={goal} onChange={(e) => setGoal(e.target.value)} rows={3} className={`${inputClass} resize-none`} placeholder="What should this sprint achieve?" /></Field>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Field label="Status">
+            <select value={status} onChange={(e) => setStatus(e.target.value)} className={inputClass}>
+              <option value="planned">Planned</option>
+              <option value="active">Active</option>
+              <option value="completed">Completed</option>
+            </select>
+          </Field>
+          <Field label="Start"><input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={inputClass} /></Field>
+          <Field label="End"><input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className={inputClass} /></Field>
         </div>
-      </div>
-
-      <div className="p-5">
-        <div className="flex items-end justify-between">
-          <div>
-            <p className="text-sm text-zinc-500">
-              Sprint progress
-            </p>
-
-            <p className="mt-1 text-2xl font-semibold tracking-tight text-zinc-950">
-              {sprint.progress}%
-            </p>
-          </div>
-
-          <span className="text-xs text-zinc-400">
-            {sprint.completed} completed
-          </span>
+        <div className="flex justify-end gap-3 border-t border-zinc-100 pt-5">
+          <SecondaryButton onClick={onClose}>Cancel</SecondaryButton>
+          <PrimaryButton type="submit" disabled={saving}>{saving ? "Saving..." : sprint ? "Save changes" : "Create sprint"}</PrimaryButton>
         </div>
-
-        <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-100">
-          <div
-            className="h-full rounded-full bg-zinc-900 transition-all"
-            style={{ width: `${sprint.progress}%` }}
-          />
-        </div>
-
-        <div className="mt-4 grid grid-cols-3 divide-x divide-zinc-100 border-t border-zinc-100 pt-4">
-          <div>
-            <p className="text-xs text-zinc-400">
-              Completed
-            </p>
-            <p className="mt-1 text-sm font-semibold text-zinc-900">
-              {sprint.completed}
-            </p>
-          </div>
-
-          <div className="pl-4">
-            <p className="text-xs text-zinc-400">
-              In progress
-            </p>
-            <p className="mt-1 text-sm font-semibold text-zinc-900">
-              {sprint.inProgress}
-            </p>
-          </div>
-
-          <div className="pl-4">
-            <p className="text-xs text-zinc-400">
-              Remaining
-            </p>
-            <p className="mt-1 text-sm font-semibold text-zinc-900">
-              {sprint.remaining}
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-5">
-          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-            Sprint goals
-          </p>
-
-          <div className="mt-3 space-y-2.5">
-            {sprint.goals.map((goal) => (
-              <GoalRow
-                key={goal.label}
-                goal={goal}
-              />
-            ))}
-          </div>
-        </div>
-
-        <button
-          type="button"
-          className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-zinc-700 hover:text-zinc-950"
-        >
-          Open sprint
-          <ArrowRight size={15} />
-        </button>
-      </div>
-    </div>
+      </form>
+    </Modal>
   );
 }
 
 function Sprints() {
+  const { activeProjectId, loading: projectsLoading } = useProjects();
+  const [sprints, setSprints] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [editing, setEditing] = useState(null);
+  const [deleting, setDeleting] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!activeProjectId) return;
+    setLoading(true);
+    setError("");
+    try {
+      const [s, t] = await Promise.all([sprintApi.list(activeProjectId), taskApi.list(activeProjectId).catch(() => ({ tasks: [] }))]);
+      setSprints(s.sprints || []);
+      setTasks(t.tasks || []);
+    } catch (err) {
+      setError(errMsg(err, "Could not load sprints"));
+    } finally {
+      setLoading(false);
+    }
+  }, [activeProjectId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const confirmDelete = async () => {
+    setBusy(true);
+    try {
+      await sprintApi.remove(deleting._id);
+      setDeleting(null);
+      await load();
+    } catch (err) {
+      setError(errMsg(err, "Could not delete sprint"));
+      setDeleting(null);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const quickStatus = async (sprint, status) => {
+    try {
+      await sprintApi.update(sprint._id, { status });
+      await load();
+    } catch (err) {
+      setError(errMsg(err, "Could not update sprint"));
+    }
+  };
+
+  const current = sprints.find((s) => s.status === "active");
+  const stats = taskStats(tasks);
+  const left = current ? daysLeft(current.endDate) : null;
+
   return (
-    <div className="mx-auto max-w-7xl">
-      {/* Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-sm font-medium text-zinc-400">
-            Workspace
-          </p>
+    <div className="mx-auto max-w-7xl space-y-6">
+      <PageHeader
+        eyebrow="Workspace"
+        title="Sprint planning"
+        text="Plan sprint goals, monitor progress and keep project work moving."
+        actions={activeProjectId && (<><ProjectPicker /><PrimaryButton onClick={() => setEditing("new")}><Plus size={16} />New sprint</PrimaryButton></>)}
+      />
 
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight text-zinc-950">
-            Sprint planning
-          </h1>
+      {!activeProjectId ? <NeedProject loading={projectsLoading} /> : (
+        <>
+          <ErrorBanner message={error} onRetry={load} />
 
-          <p className="mt-2 text-sm text-zinc-500">
-            Plan sprint goals, monitor progress and keep project work
-            moving.
-          </p>
-        </div>
+          {loading && sprints.length === 0 ? <Loading label="Loading sprints..." /> : (
+            <>
+              {current && (
+                <section className="rounded-xl border border-zinc-900 bg-zinc-900 p-6 text-white">
+                  <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <div className="flex items-center gap-3 text-xs">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />Current sprint</span>
+                        {left !== null && <span className="text-zinc-400">{left >= 0 ? `Ends in ${left} day${left === 1 ? "" : "s"}` : `Ended ${-left} day${left === -1 ? "" : "s"} ago`}</span>}
+                      </div>
+                      <h2 className="mt-3 text-2xl font-semibold">{current.name}</h2>
+                      <p className="mt-1 text-sm text-zinc-400">{fmtDate(current.startDate)} — {fmtDate(current.endDate)}</p>
+                      {current.goal && <p className="mt-3 max-w-xl text-sm text-zinc-300">{current.goal}</p>}
+                    </div>
+                    <div className="grid grid-cols-3 gap-6 text-center">
+                      <div><p className="text-xs text-zinc-400">Completed</p><p className="mt-1 text-2xl font-semibold">{stats.completed}</p></div>
+                      <div><p className="text-xs text-zinc-400">In progress</p><p className="mt-1 text-2xl font-semibold">{stats.inProgress}</p></div>
+                      <div><p className="text-xs text-zinc-400">To do</p><p className="mt-1 text-2xl font-semibold">{stats.todo}</p></div>
+                    </div>
+                  </div>
+                  <div className="mt-6">
+                    <div className="flex justify-between text-xs text-zinc-400"><span>Project task progress</span><span>{stats.progress}%</span></div>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-white" style={{ width: `${stats.progress}%` }} /></div>
+                  </div>
+                </section>
+              )}
 
-        <button
-          type="button"
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-800"
-        >
-          <Plus size={16} />
-          New sprint
-        </button>
-      </div>
-
-      {/* Current sprint */}
-      <section className="mt-8 rounded-xl border border-zinc-200 bg-white">
-        <div className="p-6 lg:p-7">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-2 rounded-full bg-zinc-900 px-2.5 py-1 text-[11px] font-medium text-white">
-                  <span className="h-1.5 w-1.5 rounded-full bg-white" />
-                  Current sprint
-                </span>
-
-                <span className="text-xs text-zinc-400">
-                  Ends in 4 days
-                </span>
+              <div className="flex items-end justify-between">
+                <div>
+                  <h2 className="text-base font-semibold text-zinc-950">Sprint history</h2>
+                  <p className="text-xs text-zinc-400">All sprints in this project.</p>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs text-zinc-400"><Clock3 size={14} />{sprints.length} total</div>
               </div>
 
-              <h2 className="mt-3 text-2xl font-semibold tracking-tight text-zinc-950">
-                Sprint 04
-              </h2>
+              {sprints.length === 0 ? (
+                <EmptyState icon={Layers3} title="No sprints yet" text="Create the first sprint for this project." action={<PrimaryButton onClick={() => setEditing("new")}><Plus size={16} />New sprint</PrimaryButton>} />
+              ) : (
+                <div className="grid gap-4 xl:grid-cols-2">
+                  {sprints.map((sprint) => (
+                    <div key={sprint._id} className="rounded-xl border border-zinc-200 bg-white p-5">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <Layers3 size={17} className="text-zinc-500" />
+                            <h3 className="text-base font-semibold text-zinc-950">{sprint.name}</h3>
+                            <StatusBadge status={sprint.status} />
+                          </div>
+                          <div className="mt-2 flex items-center gap-1.5 text-xs text-zinc-400"><CalendarDays size={14} />{fmtDate(sprint.startDate)} — {fmtDate(sprint.endDate)}</div>
+                        </div>
+                        <div className="flex">
+                          <button type="button" onClick={() => setEditing(sprint)} className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"><Pencil size={15} /></button>
+                          <button type="button" onClick={() => setDeleting(sprint)} className="rounded-md p-1.5 text-zinc-400 hover:bg-red-50 hover:text-red-600"><Trash2 size={15} /></button>
+                        </div>
+                      </div>
+                      <p className="mt-4 text-sm text-zinc-600">{sprint.goal || <span className="text-zinc-400">No goal set.</span>}</p>
+                      <div className="mt-5 flex gap-2 border-t border-zinc-100 pt-4">
+                        {sprint.status === "planned" && <SecondaryButton className="!px-3 !py-1.5 text-xs" onClick={() => quickStatus(sprint, "active")}>Start sprint</SecondaryButton>}
+                        {sprint.status === "active" && <PrimaryButton className="!px-3 !py-1.5 text-xs" onClick={() => quickStatus(sprint, "completed")}>Complete sprint</PrimaryButton>}
+                        {sprint.status === "completed" && <SecondaryButton className="!px-3 !py-1.5 text-xs" onClick={() => quickStatus(sprint, "active")}>Reopen</SecondaryButton>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
-              <p className="mt-1 text-sm text-zinc-500">
-                08 Oct — 12 Oct
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-              <div className="rounded-lg border border-zinc-200 px-4 py-3">
-                <p className="text-xs text-zinc-400">
-                  Completed
-                </p>
-
-                <p className="mt-1 text-lg font-semibold text-zinc-900">
-                  14
-                </p>
+              <div className="flex items-center gap-4 rounded-xl border border-zinc-200 bg-white p-5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-100 text-zinc-700"><Target size={18} /></div>
+                <div>
+                  <p className="text-sm font-semibold text-zinc-950">{current ? `${current.name} is in progress` : "No active sprint"}</p>
+                  <p className="text-xs text-zinc-400">The project has {stats.total - stats.completed} open task{stats.total - stats.completed === 1 ? "" : "s"}.</p>
+                </div>
               </div>
+            </>
+          )}
+        </>
+      )}
 
-              <div className="rounded-lg border border-zinc-200 px-4 py-3">
-                <p className="text-xs text-zinc-400">
-                  In progress
-                </p>
-
-                <p className="mt-1 text-lg font-semibold text-zinc-900">
-                  4
-                </p>
-              </div>
-
-              <div className="rounded-lg border border-zinc-200 px-4 py-3">
-                <p className="text-xs text-zinc-400">
-                  Remaining
-                </p>
-
-                <p className="mt-1 text-lg font-semibold text-zinc-900">
-                  3
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-7">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-zinc-700">
-                Overall progress
-              </p>
-
-              <p className="text-sm font-semibold text-zinc-950">
-                78%
-              </p>
-            </div>
-
-            <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-zinc-100">
-              <div className="h-full w-[78%] rounded-full bg-zinc-900" />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* AI planning insight */}
-      <section className="mt-6 rounded-xl border border-zinc-200 bg-white p-5">
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          <div className="flex gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100">
-              <Sparkles
-                size={18}
-                className="text-zinc-700"
-                strokeWidth={1.8}
-              />
-            </div>
-
-            <div>
-              <p className="text-sm font-semibold text-zinc-950">
-                AI planning insight
-              </p>
-
-              <p className="mt-1 max-w-2xl text-sm leading-6 text-zinc-500">
-                3 high-priority tasks are currently unassigned.
-                Consider moving them into the next sprint to reduce
-                delivery risk.
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            className="inline-flex shrink-0 items-center gap-2 self-start rounded-lg border border-zinc-200 px-3 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50"
-          >
-            Review tasks
-            <ArrowRight size={15} />
-          </button>
-        </div>
-      </section>
-
-      {/* Sprint history */}
-      <div className="mt-8 flex items-center justify-between">
-        <div>
-          <h2 className="text-base font-semibold text-zinc-950">
-            Sprint history
-          </h2>
-
-          <p className="mt-1 text-sm text-zinc-500">
-            Previous and current project sprints.
-          </p>
-        </div>
-
-        <div className="hidden items-center gap-2 text-xs text-zinc-400 sm:flex">
-          <Clock3 size={14} />
-          Updated recently
-        </div>
-      </div>
-
-      <div className="mt-4 grid gap-4 xl:grid-cols-2">
-        {sprints.map((sprint) => (
-          <SprintCard
-            key={sprint.id}
-            sprint={sprint}
-          />
-        ))}
-      </div>
-
-      {/* Planning status */}
-      <div className="mt-6 flex items-center gap-3 rounded-xl border border-zinc-200 bg-white p-4">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-100">
-          <Target
-            size={18}
-            className="text-zinc-700"
-            strokeWidth={1.8}
-          />
-        </div>
-
-        <div>
-          <p className="text-sm font-medium text-zinc-900">
-            Sprint is progressing normally
-          </p>
-
-          <p className="mt-0.5 text-xs text-zinc-400">
-            Current sprint has 7 open tasks across planned work.
-          </p>
-        </div>
-      </div>
+      {editing && <SprintForm sprint={editing === "new" ? null : editing} projectId={activeProjectId} onClose={() => setEditing(null)} onSaved={load} />}
+      {deleting && <ConfirmDelete what={deleting.name} busy={busy} onCancel={() => setDeleting(null)} onConfirm={confirmDelete} />}
     </div>
   );
 }

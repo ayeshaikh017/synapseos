@@ -10,8 +10,13 @@ import {
   Sparkles,
   Settings,
   UserRound,
+  LogOut,
 } from "lucide-react";
-import { NavLink } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { notificationApi } from "../api/services";
+import { useAuth } from "../context/AuthContext";
+import { initialsOf } from "../utils/format";
 
 const workspaceItems = [
   {
@@ -125,6 +130,36 @@ function BottomNavigationItem({ to, icon: Icon, children }) {
 }
 
 function AppLayout({ children }) {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [unread, setUnread] = useState(0);
+
+  const refreshUnread = useCallback(() => {
+    notificationApi
+      .list(true)
+      .then((data) => setUnread(data.unreadCount || 0))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    refreshUnread();
+  }, [location.pathname, refreshUnread]);
+
+  useEffect(() => {
+    const timer = setInterval(refreshUnread, 60000);
+    window.addEventListener("notifications:changed", refreshUnread);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("notifications:changed", refreshUnread);
+    };
+  }, [refreshUnread]);
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login", { replace: true });
+  };
+
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900">
       <div className="flex min-h-screen">
@@ -210,28 +245,42 @@ function AppLayout({ children }) {
               {/* Notifications */}
               <button
                 type="button"
+                onClick={() => navigate("/notifications")}
                 className="relative rounded-lg p-2 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"
               >
                 <Bell size={18} strokeWidth={1.8} />
 
-                <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-zinc-900" />
+                {unread > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-zinc-900 px-1 text-[9px] font-semibold text-white">
+                    {unread > 9 ? "9+" : unread}
+                  </span>
+                )}
               </button>
 
               {/* Profile */}
               <div className="flex items-center gap-3 border-l border-zinc-200 pl-3">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-900 text-xs font-semibold text-white">
-                  SP
+                  {initialsOf(user?.name)}
                 </div>
 
                 <div className="hidden text-left sm:block">
                   <p className="text-sm font-medium text-zinc-900">
-                    Shivangee
+                    {user?.name || "User"}
                   </p>
 
                   <p className="text-[11px] text-zinc-400">
-                    Member
+                    {user?.role ? user.role[0].toUpperCase() + user.role.slice(1) : "Member"}
                   </p>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  title="Log out"
+                  className="rounded-lg p-2 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"
+                >
+                  <LogOut size={17} strokeWidth={1.8} />
+                </button>
               </div>
             </div>
           </header>

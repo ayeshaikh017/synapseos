@@ -18,6 +18,7 @@ import Meetings from "./pages/Meetings";
 import Notifications from "./pages/Notifications";
 import GitHub from "./pages/GitHub";
 import AI from "./pages/AI";
+import { useAuth } from "./context/AuthContext";
 
 function Placeholder({ title }) {
   return (
@@ -29,6 +30,39 @@ function Placeholder({ title }) {
       <p className="mt-1 text-sm text-zinc-500">
         SynapseOS workspace
       </p>
+    </div>
+  );
+}
+
+function Profile() {
+  const { user, logout } = useAuth();
+
+  return (
+    <div className="mx-auto max-w-xl">
+      <h1 className="text-2xl font-semibold text-zinc-950">Profile</h1>
+      <p className="mt-1 text-sm text-zinc-500">Your SynapseOS account</p>
+
+      <div className="mt-6 divide-y divide-zinc-100 rounded-xl border border-zinc-200 bg-white">
+        {[
+          ["Name", user?.name],
+          ["Email", user?.email],
+          ["Role", user?.role],
+          ["User ID", user?._id],
+        ].map(([label, value]) => (
+          <div key={label} className="flex items-center justify-between gap-4 px-5 py-4">
+            <span className="text-sm text-zinc-500">{label}</span>
+            <span className="truncate text-sm font-medium text-zinc-900">{value || "—"}</span>
+          </div>
+        ))}
+      </div>
+
+      <button
+        type="button"
+        onClick={logout}
+        className="mt-6 rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-800"
+      >
+        Log out
+      </button>
     </div>
   );
 }
@@ -154,7 +188,7 @@ function App() {
           path="/profile"
           element={
             <AppLayout>
-              <Placeholder title="Profile" />
+              <Profile />
             </AppLayout>
           }
         />

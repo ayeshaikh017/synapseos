@@ -243,6 +243,19 @@ JWT_SECRET=your_jwt_secret
 CLIENT_URL=http://localhost:5173
 ```
 
+## Optional variables
+
+```env
+GITHUB_TOKEN=
+OPENAI_API_KEY=
+```
+
+- `GITHUB_TOKEN` — optional, **server-side only**. Used only to raise GitHub's API rate limit for
+  `GET /api/projects/:projectId/github`. It is never returned to the frontend.
+  Note: if set, project members can see public info of any linked repository that this token can read.
+- `OPENAI_API_KEY` — **PLANNED**. The LLM integration is not implemented; this variable is only
+  reported (as true/false) by `GET /api/ai/status`.
+
 ## Meaning
 
 ### PORT
@@ -515,6 +528,27 @@ Requires:
 Authorization: Bearer <JWT_TOKEN>
 ```
 
+Success response (`200`):
+
+```json
+{
+  "success": true,
+  "message": "Current user fetched successfully",
+  "data": {
+    "user": {
+      "_id": "USER_ID",
+      "name": "Ayesha",
+      "email": "ayesha@example.com",
+      "avatar": "",
+      "role": "member"
+    }
+  }
+}
+```
+
+Errors: `401` missing/invalid/expired token, `404` user no longer exists.
+The password is never returned.
+
 ---
 
 # 15. User Naming Convention
@@ -583,67 +617,62 @@ unless discussed with the backend developer.
 ---
 
 # 17. Projects API
-
-Base route:
-
-```text
-/api/projects
-```
-
 ## Get all projects
 
 ```http
 GET /api/projects
 ```
 
----
+### Authentication
 
-## Create project
+Required.
 
 ```http
-POST /api/projects
+Authorization: Bearer <JWT_TOKEN>
 ```
 
-Example request:
+### Request body
+
+No request body.
+
+### Access rule
+
+The backend returns only projects where the logged-in user is:
+
+- the project owner, OR
+- included in the project's `members` array.
+
+### Success response
 
 ```json
 {
-  "name": "SynapseOS",
-  "description": "AI-powered intelligent workspace"
+  "success": true,
+  "message": "Projects fetched successfully",
+  "data": {
+    "projects": []
+  }
 }
 ```
 
----
+If the logged-in user has accessible projects, they are returned inside the `projects` array.
 
-## Get one project
+If the logged-in user is authenticated but has no accessible projects, the `projects` array is empty.
 
-```http
-GET /api/projects/:projectId
+### Unauthorized response
+
+```json
+{
+  "success": false,
+  "message": "Not authorized. Token required."
+}
 ```
 
-Example:
+### Tested
 
-```text
-GET /api/projects/65abc123
-```
-
----
-
-## Update project
-
-```http
-PUT /api/projects/:projectId
-```
-
----
-
-## Delete project
-
-```http
-DELETE /api/projects/:projectId
-```
-
----
+- Owner can fetch their project.
+- Project member can fetch the project.
+- Authenticated user who is neither owner nor member receives an empty project list.
+- Request without JWT is rejected.
 
 # 18. Important Project ID Naming
 
@@ -822,236 +851,410 @@ Do not use:
 
 # 23. Sprints
 
-Base route:
+**Status: IMPLEMENTED and tested.**
+
+All sprint routes require `Authorization: Bearer <JWT_TOKEN>` and the user must be the owner or a member of the sprint's project.
 
 ```text
-/api/sprints
-```
-
-Planned operations:
-
-```text
-GET    /api/sprints
-POST   /api/sprints
-GET    /api/sprints/:sprintId
+POST   /api/projects/:projectId/sprints
+GET    /api/projects/:projectId/sprints
 PUT    /api/sprints/:sprintId
 DELETE /api/sprints/:sprintId
 ```
 
-Use:
+Sprint fields: `name`, `goal`, `project`, `startDate`, `endDate`, `status`, `createdAt`, `updatedAt`.
+Status values: `planned` (default), `active`, `completed`.
 
-```text
-sprintId
+## Create sprint
+
+`POST /api/projects/:projectId/sprints` → `201`
+
+```json
+{
+  "name": "Sprint 1",
+  "goal": "Ship login",
+  "startDate": "2026-10-01",
+  "endDate": "2026-10-14",
+  "status": "planned"
+}
 ```
 
-for route parameters.
+Only `name` is required. Response:
+
+```json
+{ "success": true, "message": "Sprint created successfully", "data": { "sprint": { "_id": "...", "name": "Sprint 1", "project": "PROJECT_ID", "status": "planned" } } }
+```
+
+## List sprints
+
+`GET /api/projects/:projectId/sprints` → `200`, `data: { "sprints": [] }` (newest first).
+
+## Update sprint
+
+`PUT /api/sprints/:sprintId` → `200`, `data: { "sprint": {} }`.
+Any of `name`, `goal`, `startDate`, `endDate`, `status`. `project` cannot be changed.
+
+## Delete sprint
+
+`DELETE /api/sprints/:sprintId` → `200`, `data: {}`.
+
+## Errors
+
+| Status | When |
+|---|---|
+| 400 | name missing/empty, invalid `status`, invalid date, `endDate` before `startDate` |
+| 401 | missing/invalid token |
+| 404 | project/sprint not found, malformed id, **or user has no access to the project** |
 
 ---
 
 # 24. Documents
 
-Base route:
+**Status: IMPLEMENTED and tested.**
+
+All routes require a JWT and project access (owner or member).
 
 ```text
-/api/documents
-```
-
-Planned operations:
-
-```text
-GET    /api/documents
-POST   /api/documents
+POST   /api/projects/:projectId/documents
+GET    /api/projects/:projectId/documents
 GET    /api/documents/:documentId
 PUT    /api/documents/:documentId
 DELETE /api/documents/:documentId
 ```
 
-Use:
+Fields: `title`, `content`, `project`, `createdBy`, `updatedBy`, `createdAt`, `updatedAt`.
+`createdBy` / `updatedBy` are set by the backend from the JWT.
 
-```text
-documentId
+## Create document
+
+`POST /api/projects/:projectId/documents` → `201`
+
+```json
+{ "title": "API Spec", "content": "# Overview" }
 ```
 
-for document route parameters.
+`title` required, `content` optional. Response: `data: { "document": {} }`.
+
+## List / get
+
+- `GET /api/projects/:projectId/documents` → `200`, `data: { "documents": [] }` (most recently updated first)
+- `GET /api/documents/:documentId` → `200`, `data: { "document": {} }`
+
+## Update
+
+`PUT /api/documents/:documentId` → `200`, body: `title` and/or `content`. Sets `updatedBy` to the caller.
+
+## Delete
+
+`DELETE /api/documents/:documentId` → `200`, `data: {}`.
+
+## Errors
+
+| Status | When |
+|---|---|
+| 400 | title missing/empty |
+| 401 | missing/invalid token |
+| 404 | not found, malformed id, or no project access |
 
 ---
 
 # 25. Meetings
 
-Base route:
+**Status: IMPLEMENTED and tested.**
+
+All routes require a JWT and project access (owner or member).
 
 ```text
-/api/meetings
-```
-
-Planned operations:
-
-```text
-GET    /api/meetings
-POST   /api/meetings
+POST   /api/projects/:projectId/meetings
+GET    /api/projects/:projectId/meetings
 GET    /api/meetings/:meetingId
 PUT    /api/meetings/:meetingId
 DELETE /api/meetings/:meetingId
 ```
 
-Use:
+Fields: `title`, `description`, `project`, `createdBy`, `scheduledAt`, `participants`, `meetingLink`, `notes`, `createdAt`, `updatedAt`.
 
-```text
-meetingId
+## Create meeting
+
+`POST /api/projects/:projectId/meetings` → `201`
+
+```json
+{
+  "title": "Sprint planning",
+  "description": "Plan sprint 2",
+  "scheduledAt": "2026-10-12T09:00:00Z",
+  "participants": ["USER_ID_1", "USER_ID_2"],
+  "meetingLink": "https://meet.example.com/abc",
+  "notes": ""
+}
 ```
 
-for route parameters.
+- `title` and `scheduledAt` are required.
+- `participants` (optional) must be user ids of the project's owner/members.
+- `meetingLink` (optional) must be an `http(s)` URL.
+- Each participant other than the creator receives a notification (`type: "meeting"`).
+
+Response: `data: { "meeting": {} }`.
+
+## List / get
+
+- `GET /api/projects/:projectId/meetings` → `200`, `data: { "meetings": [] }` (soonest first)
+- `GET /api/meetings/:meetingId` → `200`, `data: { "meeting": {} }`
+
+## Update
+
+`PUT /api/meetings/:meetingId` → `200`. Any of `title`, `description`, `scheduledAt`, `participants`, `meetingLink`, `notes`.
+Newly added participants are notified; existing ones are not notified again.
+
+## Delete
+
+`DELETE /api/meetings/:meetingId` → `200`, `data: {}`.
+
+## Errors
+
+| Status | When |
+|---|---|
+| 400 | missing title/scheduledAt, invalid date, invalid/non-http `meetingLink`, invalid or non-member participants |
+| 401 | missing/invalid token |
+| 404 | not found, malformed id, or no project access |
 
 ---
 
 # 26. Notifications
 
-Base route:
+**Status: IMPLEMENTED and tested.**
+
+Notifications are strictly per user. Another user's notification returns `404` (not `403`) so its existence is not revealed.
+Currently the backend creates notifications when a user is added as a meeting participant.
 
 ```text
-/api/notifications
+GET    /api/notifications
+PUT    /api/notifications/:notificationId/read
+DELETE /api/notifications/:notificationId
 ```
 
-Planned operations:
+Fields: `user`, `title`, `message`, `type` (`info | task | meeting | project | system`), `isRead`, `createdAt`.
 
-```text
-GET /api/notifications
-PUT /api/notifications/:notificationId
+## List
+
+`GET /api/notifications` (optional `?unreadOnly=true`) → `200`
+
+```json
+{
+  "success": true,
+  "message": "Notifications fetched successfully",
+  "data": { "notifications": [], "unreadCount": 0 }
+}
 ```
 
-Use:
+Newest first, max 100. `unreadCount` always counts all unread notifications.
 
-```text
-notificationId
-```
+## Mark as read
 
-for route parameters.
+`PUT /api/notifications/:notificationId/read` → `200`, `data: { "notification": {} }`. No request body.
+
+## Delete
+
+`DELETE /api/notifications/:notificationId` → `200`, `data: {}`.
+
+## Errors
+
+`401` missing/invalid token · `404` not found, malformed id, or belongs to another user.
 
 ---
 
 # 27. GitHub Integration
 
-Base route:
+**Status: BASIC version IMPLEMENTED. Advanced features are PLANNED.**
+
+One public GitHub repository can be linked per project. The backend fetches basic info from GitHub's public REST API.
+There is **no OAuth**. No GitHub token is stored in the database or returned to the frontend.
 
 ```text
-/api/github
+GET    /api/projects/:projectId/github
+PUT    /api/projects/:projectId/github
+DELETE /api/projects/:projectId/github
 ```
 
-GitHub-related frontend functionality may include:
+All require a JWT and project access.
 
-```text
-Repositories
-Commits
-Issues
-Pull Requests
-Branches
+## Link a repository
+
+`PUT /api/projects/:projectId/github` → `200`
+
+```json
+{ "repositoryUrl": "https://github.com/expressjs/express" }
 ```
 
-The frontend should NOT directly make sensitive GitHub API calls using private credentials.
+Only `https://github.com/<owner>/<repo>` (optional `.git`) is accepted. Response:
 
-The intended flow is:
-
-```text
-React
- ↓
-SynapseOS Backend
- ↓
-GitHub API
- ↓
-Backend
- ↓
-React
+```json
+{
+  "success": true,
+  "message": "GitHub repository linked successfully",
+  "data": {
+    "integration": {
+      "project": "PROJECT_ID",
+      "repositoryUrl": "https://github.com/expressjs/express",
+      "repositoryOwner": "expressjs",
+      "repositoryName": "express"
+    }
+  }
+}
 ```
 
-Planned route examples:
+Calling it again replaces the linked repository. The repository is not verified at link time.
 
-```text
-GET /api/github/repositories
-GET /api/github/commits
-GET /api/github/issues
-GET /api/github/pulls
+## Get repository info
+
+`GET /api/projects/:projectId/github` → `200`
+
+Not linked:
+
+```json
+{ "success": true, "message": "No GitHub repository linked to this project", "data": { "linked": false, "integration": null, "repository": null } }
 ```
 
-These endpoints are part of the planned architecture and may not be implemented yet.
+Linked:
+
+```json
+{
+  "success": true,
+  "message": "GitHub repository fetched successfully",
+  "data": {
+    "linked": true,
+    "integration": {},
+    "repository": {
+      "fullName": "expressjs/express",
+      "description": "...",
+      "htmlUrl": "https://github.com/expressjs/express",
+      "defaultBranch": "master",
+      "language": "JavaScript",
+      "stars": 0,
+      "forks": 0,
+      "openIssues": 0,
+      "isPrivate": false,
+      "pushedAt": "...",
+      "updatedAt": "..."
+    }
+  }
+}
+```
+
+## Unlink
+
+`DELETE /api/projects/:projectId/github` → `200`, `data: {}` (`404` if nothing is linked).
+
+## Errors
+
+| Status | When |
+|---|---|
+| 400 | `repositoryUrl` missing or not a valid `https://github.com/<owner>/<repo>` URL |
+| 401 | missing/invalid token |
+| 404 | project not found / no access, or (on GET) repository does not exist on GitHub |
+| 502 | GitHub unreachable or returned an unexpected response |
+| 503 | GitHub API rate limit reached (set `GITHUB_TOKEN` on the server to raise the limit) |
+
+## PLANNED (not implemented)
+
+Commits, issues, pull requests, branches, webhooks, and OAuth / private-repository access per user.
 
 ---
 
 # 28. AI Routes
 
-Base route:
+**Status: PLANNED / NOT FULLY IMPLEMENTED.**
+
+The route / controller / service structure and input validation exist. **No LLM provider is integrated**, so the AI endpoints
+validate the request and then respond `501`. They never return invented AI output.
+The frontend must never call an LLM provider directly.
 
 ```text
-/api/ai
-```
-
-Planned AI functionality:
-
-```text
-Meeting summarization
-Project search
-Task prioritization
-Sprint recommendations
-Project risk analysis
-RAG-based project knowledge
-```
-
-Potential API structure:
-
-```text
-POST /api/ai/summarize
+GET  /api/ai/status
+POST /api/ai/task-priority
 POST /api/ai/search
-POST /api/ai/prioritize
-POST /api/ai/recommend
-POST /api/ai/risk-analysis
 ```
 
-These are planned API contracts and should be treated as **not implemented until confirmed by the backend developer**.
+All require a JWT.
+
+## AI status
+
+`GET /api/ai/status` → `200`
+
+```json
+{
+  "success": true,
+  "message": "AI feature status",
+  "data": {
+    "llm": { "keyConfigured": false, "implemented": false, "status": "PLANNED" },
+    "rag": { "implemented": false, "status": "PLANNED" }
+  }
+}
+```
+
+The frontend can use this to hide or disable AI buttons.
+
+## Task priority suggestion
+
+`POST /api/ai/task-priority`
+
+```json
+{
+  "title": "Fix login bug",
+  "description": "Users cannot log in on Safari",
+  "dueDate": "2026-10-20",
+  "projectId": "PROJECT_ID"
+}
+```
+
+`title` is required; the others are optional. If `projectId` is sent, the user must have access to it.
+
+| Status | When |
+|---|---|
+| 400 | `title` missing, `description` not a string, invalid `dueDate` |
+| 401 | missing/invalid token |
+| 404 | `projectId` given but project not found / no access |
+| 501 | **Current result for every valid request: LLM integration is PLANNED** |
+
+```json
+{ "success": false, "message": "AI is not configured (no LLM API key) and the LLM integration is PLANNED" }
+```
+
+## Project knowledge search
+
+`POST /api/ai/search` — see section 29.
+
+Not yet created (original planned list): `summarize`, `recommend`, `risk-analysis`.
 
 ---
 
 # 29. RAG / Project Knowledge
 
-The long-term architecture includes:
+**Status: PLANNED / NOT IMPLEMENTED (service interface only).**
 
-```text
-Project Documents
-       ↓
-Text Processing
-       ↓
-Embeddings
-       ↓
-Vector Search
-       ↓
-Relevant Project Knowledge
-       ↓
-LLM
-       ↓
-AI Response
+`src/services/rag/ragService.js` defines the interface (`indexDocument`, `removeDocument`, `search`).
+Every method currently throws a `501` error. There is no embedding provider and no vector index.
+
+`POST /api/ai/search`
+
+```json
+{ "projectId": "PROJECT_ID", "query": "How does authentication work?" }
 ```
 
-MongoDB Atlas may be used for vector search.
+| Status | When |
+|---|---|
+| 400 | `projectId` missing/invalid, `query` missing |
+| 401 | missing/invalid token |
+| 404 | project not found / no access |
+| 501 | **Current result for every valid request: vector search is PLANNED** |
 
-The frontend should treat AI/RAG functionality as API-based.
-
-React should NOT directly connect to:
-
-```text
-MongoDB
-LLM provider
-Embedding provider
-```
-
-The correct architecture is:
+Intended architecture (not built):
 
 ```text
-React
- ↓
-Express API
- ↓
-AI/RAG Service
- ↓
-MongoDB / Vector Search / LLM
+Project Documents → chunking → embeddings → vector search → LLM → answer
 ```
+
+React must never connect directly to MongoDB, an LLM provider, or an embedding provider.
 
 ---
 
@@ -1863,6 +2066,8 @@ Authorization: Bearer <token>
 
 # 56. Current Backend Status
 
+# 56. Current Backend Status
+
 ### Implemented / Initial Setup
 
 ```text
@@ -1876,15 +2081,24 @@ Authorization: Bearer <token>
 ✓ Basic server
 ✓ / endpoint
 ✓ /api/health endpoint
+✓ User model
+✓ User registration
+✓ User login
+✓ JWT authentication
+✓ JWT middleware
+✓ /api/auth/me
+✓ Role-based authorization
+✓ Project model
+✓ POST /api/projects
+✓ GET /api/projects
 ```
 
 ### Planned / To Be Implemented
 
 ```text
-□ User model
-□ Authentication
-□ JWT middleware
-□ Project APIs
+□ GET /api/projects/:projectId
+□ PUT /api/projects/:projectId
+□ DELETE /api/projects/:projectId
 □ Task APIs
 □ Sprint APIs
 □ Document APIs
@@ -1897,8 +2111,6 @@ Authorization: Bearer <token>
 ```
 
 **Important:** A route documented above is a planned contract unless it is marked as implemented in the backend code.
-
----
 
 # 57. If an API Changes
 
@@ -2156,3 +2368,249 @@ member
 MongoDB Atlas
 Database: synapseos
 ```
+
+## Get Single Project API
+
+Status: Implemented
+
+GET /api/projects/:projectId
+
+Authentication:
+Authorization: Bearer <JWT_TOKEN>
+
+Route parameter:
+projectId — MongoDB ID of the project.
+
+Request body:
+None.
+
+Success response:
+{
+  "success": true,
+  "message": "Project fetched successfully",
+  "data": {
+    "project": {
+      "_id": "...",
+      "name": "...",
+      "description": "...",
+      "owner": "...",
+      "members": [],
+      "status": "planning",
+      "createdAt": "...",
+      "updatedAt": "..."
+    }
+  }
+}
+
+Error response:
+{
+  "success": false,
+  "message": "Project not found"
+}
+
+Access:
+The authenticated user must be the project owner or a project member.
+
+
+## Update Project
+
+### Endpoint
+
+PUT /api/projects/:projectId
+
+### Authentication
+
+Requires JWT authentication.
+
+Header:
+
+Authorization: Bearer <JWT_TOKEN>
+
+### Request Body
+
+Allowed fields:
+
+- name
+- description
+- members
+- status
+- startDate
+- endDate
+
+The `owner` field cannot be updated.
+
+### Example Request
+
+PUT /api/projects/6ac7f26f0fbfad13252f1315
+
+```json
+{
+  "name": "SynapseOS AI Workspace",
+  "description": "AI-powered workspace for teams and students",
+  "status": "active",
+  "startDate": "2026-10-09",
+  "endDate": "2027-05-31",
+  "members": [
+    "USER_ID"
+  ]
+}
+
+Success Response
+{
+  "success": true,
+  "message": "Project updated successfully",
+  "data": {
+    "project": {}
+  }
+}
+
+Invalid Project Data
+{
+  "success": false,
+  "message": "Invalid project data"
+}
+
+Status code: 400
+Project Not Found
+{
+  "success": false,
+  "message": "Project not found"
+}
+
+Status code: 404
+
+Add it and reply **`done`**.
+
+Then we immediately start **DELETE Project**.
+
+
+
+ **Task CRUD is working.**
+
+We now have all 4 core Task APIs:
+
+```text
+POST   /api/projects/:projectId/tasks  ✅
+GET    /api/projects/:projectId/tasks  ✅
+PUT    /api/tasks/:taskId              ✅
+DELETE /api/tasks/:taskId              ✅
+```
+
+
+
+## Step 16 — Action 13: Document Tasks
+
+Open:
+
+```text
+docs/BACKEND_GUIDELINES.md
+```
+
+Add this at the end:
+
+```md
+## Task APIs
+
+### Create Task
+
+POST /api/projects/:projectId/tasks
+
+Authentication: Required
+
+Request body:
+
+```json
+{
+  "title": "Build Task API",
+  "description": "Implement task APIs",
+  "status": "todo",
+  "priority": "high"
+}
+```
+
+Allowed status values:
+
+- todo
+- in_progress
+- completed
+
+Allowed priority values:
+
+- low
+- medium
+- high
+
+Success response:
+
+```json
+{
+  "success": true,
+  "message": "Task created successfully",
+  "data": {
+    "task": {}
+  }
+}
+```
+
+### Get Project Tasks
+
+GET /api/projects/:projectId/tasks
+
+Authentication: Required
+
+Success response:
+
+```json
+{
+  "success": true,
+  "message": "Tasks fetched successfully",
+  "data": {
+    "tasks": []
+  }
+}
+```
+
+### Update Task
+
+PUT /api/tasks/:taskId
+
+Authentication: Required
+
+Allowed fields:
+
+- title
+- description
+- assignedTo
+- status
+- priority
+- dueDate
+
+Success response:
+
+```json
+{
+  "success": true,
+  "message": "Task updated successfully",
+  "data": {
+    "task": {}
+  }
+}
+```
+
+### Delete Task
+
+DELETE /api/tasks/:taskId
+
+Authentication: Required
+
+Success response:
+
+```json
+{
+  "success": true,
+  "message": "Task deleted successfully",
+  "data": {}
+}
+```
+```
+
