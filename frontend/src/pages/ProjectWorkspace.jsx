@@ -216,6 +216,13 @@ function ProjectWorkspace() {
             </Link>
 
             <Link
+              to={`/analytics?project=${projectId}`}
+              className="pb-3 text-sm font-medium text-zinc-500 transition hover:text-zinc-900"
+            >
+              Analytics
+            </Link>
+
+            <Link
               to="/github"
               className="pb-3 text-sm font-medium text-zinc-500 transition hover:text-zinc-900"
             >

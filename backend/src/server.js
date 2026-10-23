@@ -1,4 +1,5 @@
-const express = require("express");
+const express = require("express");
+const path = require("path");
 const cors = require("cors");
 const helmet = require("helmet");
 const dotenv = require("dotenv");
@@ -14,7 +15,8 @@ const documentRoutes = require("./routes/documentRoutes");
 const meetingRoutes = require("./routes/meetingRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 const githubRoutes = require("./routes/githubRoutes");
-const aiRoutes = require("./routes/aiRoutes");
+const aiRoutes = require("./routes/aiRoutes");
+const analyticsRoutes = require("./routes/analyticsRoutes");
 
 dotenv.config();
 
@@ -31,7 +33,10 @@ app.use("/api", documentRoutes);
 app.use("/api", meetingRoutes);
 app.use("/api", notificationRoutes);
 app.use("/api", githubRoutes);
-app.use("/api/ai", aiRoutes);
+app.use("/api/ai", aiRoutes);
+app.use("/api", analyticsRoutes);
+// Analytics dashboard UI (static files) -> http://localhost:<PORT>/analytics
+app.use("/analytics", express.static(path.join(__dirname, "public", "analytics")));
 
 app.get("/", (req, res) => {
   res.json({

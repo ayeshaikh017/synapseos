@@ -17,7 +17,8 @@ import Documents from "./pages/Documents";
 import Meetings from "./pages/Meetings";
 import Notifications from "./pages/Notifications";
 import GitHub from "./pages/GitHub";
-import AI from "./pages/AI";
+import AI from "./pages/AI";
+import Analytics from "./pages/Analytics";
 
 function Placeholder({ title }) {
   return (
@@ -137,6 +138,15 @@ function App() {
           element={
             <AppLayout>
               <AI />
+            </AppLayout>
+          }
+        />
+
+        <Route
+          path="/analytics"
+          element={
+            <AppLayout>
+              <Analytics />
             </AppLayout>
           }
         />

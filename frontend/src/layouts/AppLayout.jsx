@@ -2,7 +2,8 @@ import {
   LayoutDashboard,
   FolderKanban,
   CheckSquare,
-  Layers3,
+  Layers3,
+  ChartColumn,
   FileText,
   Video,
   Bell,
@@ -33,6 +34,11 @@ const workspaceItems = [
     label: "Sprints",
     path: "/sprints",
     icon: Layers3,
+  },
+  {
+    label: "Analytics",
+    path: "/analytics",
+    icon: ChartColumn,
   },
 ];
 

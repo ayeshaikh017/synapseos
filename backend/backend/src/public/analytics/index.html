@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SynapseOS · Team Analytics</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/analytics/styles.css">
+</head>
+<body>
+  <!-- Login -->
+  <main id="login" class="login hidden">
+    <form id="loginForm" class="card login-card" autocomplete="on">
+      <div class="brand"><span class="logo">S</span><span>SynapseOS</span></div>
+      <h1>Team Analytics</h1>
+      <p class="muted">Sign in to see who contributed what.</p>
+      <label>Email<input id="email" type="email" required autocomplete="username"></label>
+      <label>Password<input id="password" type="password" required autocomplete="current-password"></label>
+      <p id="loginError" class="error" role="alert"></p>
+      <button class="btn primary" type="submit">Sign in</button>
+    </form>
+  </main>
+
+  <!-- Dashboard -->
+  <div id="app" class="hidden">
+    <header class="topbar">
+      <div class="brand"><span class="logo">S</span><span>SynapseOS</span><span class="crumb">/ Analytics</span></div>
+      <div class="controls">
+        <select id="project" aria-label="Project"></select>
+        <div class="seg" id="range" role="group" aria-label="Date range">
+          <button data-range="7">7d</button>
+          <button data-range="30" class="on">30d</button>
+          <button data-range="90">90d</button>
+          <button data-range="all">All</button>
+        </div>
+        <button class="btn" id="exportCsv">Export CSV</button>
+        <button class="btn ghost" id="logout">Sign out</button>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <div class="titlebar">
+        <div>
+          <h1 id="projectName">—</h1>
+          <p class="muted" id="subtitle">Who contributed what, and how much.</p>
+        </div>
+        <span class="muted small" id="updated"></span>
+      </div>
+
+      <div id="notice" class="notice hidden" role="status"></div>
+
+      <section class="kpis" id="kpis"></section>
+
+      <section class="grid">
+        <article class="card span-4">
+          <h2>Contribution share</h2>
+          <p class="muted small">Share of total contribution score per member</p>
+          <div class="chart donut"><canvas id="cShare" aria-label="Contribution share doughnut chart" role="img"></canvas><div class="donut-center" id="donutCenter"></div></div>
+          <div class="legend" id="legendShare"></div>
+        </article>
+
+        <article class="card span-8">
+          <h2>Leaderboard</h2>
+          <p class="muted small">Score = weighted tasks, documents and meetings · hover a bar for the split</p>
+          <div class="table-scroll"><table id="board"></table></div>
+        </article>
+
+        <article class="card span-6">
+          <h2>Task delivery by member</h2>
+          <p class="muted small">Completed, in progress and to do — per assignee</p>
+          <div class="chart"><canvas id="cTasks" aria-label="Stacked bar chart of tasks per member" role="img"></canvas></div>
+        </article>
+
+        <article class="card span-6">
+          <h2>Activity over time</h2>
+          <p class="muted small">Tasks created vs completed, plus documents and meetings</p>
+          <div class="chart"><canvas id="cTime" aria-label="Activity line chart" role="img"></canvas></div>
+        </article>
+
+        <article class="card span-4">
+          <h2>Contribution profile</h2>
+          <p class="muted small">Top members, each axis scaled to the best in team (0–100)</p>
+          <div class="chart"><canvas id="cRadar" aria-label="Radar chart comparing members" role="img"></canvas></div>
+        </article>
+
+        <article class="card span-4">
+          <h2>Completed by priority</h2>
+          <p class="muted small">High-priority work carries more points</p>
+          <div class="chart"><canvas id="cPrio" aria-label="Completed tasks by priority per member" role="img"></canvas></div>
+        </article>
+
+        <article class="card span-4">
+          <h2>Docs &amp; meetings</h2>
+          <p class="muted small">Documents authored/edited, meetings organised/attended</p>
+          <div class="chart"><canvas id="cDocs" aria-label="Documents and meetings per member" role="img"></canvas></div>
+        </article>
+
+        <article class="card span-12 hidden" id="githubCard">
+          <h2>GitHub commits by contributor</h2>
+          <p class="muted small" id="githubSub"></p>
+          <div class="chart short"><canvas id="cGit" aria-label="Commits per GitHub contributor" role="img"></canvas></div>
+        </article>
+
+        <article class="card span-12">
+          <h2>How the score is calculated</h2>
+          <div class="weights" id="weights"></div>
+          <p class="muted small">Completion time is taken from the task's last update (the Task model has no completedAt field), so on-time % is an estimate.</p>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <script src="/analytics/chart.umd.js"></script>
+  <script src="/analytics/app.js"></script>
+</body>
+</html>
