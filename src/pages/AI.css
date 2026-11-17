@@ -1,0 +1,366 @@
+
+/* Main page */
+.project-intelligence {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  padding: 20px 28px 12px;
+  overflow: hidden;
+  background: #f8f8fa;
+  color: #171717;
+}
+
+/* Header */
+.intelligence-header {
+  flex-shrink: 0;
+  margin-bottom: 18px;
+}
+
+.intelligence-header h1 {
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.8px;
+  margin: 0 0 8px;
+}
+
+.intelligence-header p {
+  margin: 0;
+  font-size: 15px;
+  color: #777b87;
+}
+
+/* Chat card */
+.synapse-chat-card {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border: 1px solid #e4e4e7;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03);
+}
+
+/* Chat heading */
+.chat-header {
+  height: 86px;
+  min-height: 86px;
+  padding: 0 26px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  border-bottom: 1px solid #eeeeef;
+}
+
+.synapse-icon {
+  width: 46px;
+  height: 46px;
+  background: #18181b;
+  color: white;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chat-header h3 {
+  margin: 0 0 3px;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.chat-header p {
+  margin: 0;
+  font-size: 14px;
+  color: #85858e;
+}
+
+/* Messages section - only this area scrolls */
+.chat-messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 24px 30px;
+  scroll-behavior: smooth;
+}
+
+.messages-inner {
+  max-width: 900px;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
+}
+
+/* Message rows */
+.message-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  width: 100%;
+}
+
+.message-row.user {
+  justify-content: flex-end;
+}
+
+.message-row.assistant {
+  justify-content: flex-start;
+}
+
+.message-avatar {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #eeeeef;
+  color: #333;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: 600;
+}
+
+/* Message bubbles */
+.message-bubble {
+  max-width: 78%;
+  padding: 15px 19px;
+  border-radius: 15px;
+  font-size: 15px;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.assistant .message-bubble {
+  background: #f3f3f5;
+  color: #292936;
+  border-bottom-left-radius: 5px;
+}
+
+.user .message-bubble {
+  background: #18181b;
+  color: #ffffff;
+  border-bottom-right-radius: 5px;
+}
+
+/* Typing animation */
+.typing {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.typing span {
+  height: 7px;
+  width: 7px;
+  border-radius: 50%;
+  background: #777;
+  animation: typing 1s infinite alternate;
+}
+
+.typing span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+.typing small {
+  margin-left: 8px;
+  color: #777;
+  font-size: 12px;
+}
+
+@keyframes typing {
+  from { opacity: 0.3; transform: translateY(0); }
+  to { opacity: 1; transform: translateY(-3px); }
+}
+
+/* Bottom composer - always visible */
+.chat-composer {
+  position: relative;
+  flex-shrink: 0;
+  width: 100%;
+  background: #ffffff;
+  border-top: 1px solid #eeeeef;
+  padding: 16px 20px 12px;
+  box-sizing: border-box;
+}
+
+.chat-composer textarea {
+  width: 100%;
+  min-height: 65px;
+  max-height: 130px;
+  resize: vertical;
+  outline: none;
+  border: none;
+  background: transparent;
+  color: #222;
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.6;
+  padding: 5px 5px 12px;
+  box-sizing: border-box;
+}
+
+.chat-composer textarea::placeholder {
+  color: #a0a0ac;
+}
+
+.composer-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid #eeeeef;
+  padding-top: 12px;
+}
+
+/* Project knowledge */
+.knowledge-wrapper {
+  position: relative;
+}
+
+.knowledge-button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: transparent;
+  border: none;
+  color: #555b68;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 7px 5px;
+}
+
+.chevron {
+  font-size: 19px;
+  margin-left: 3px;
+}
+
+.knowledge-menu {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  left: 0;
+  min-width: 210px;
+  background: white;
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.12);
+  padding: 6px;
+  z-index: 20;
+}
+
+.knowledge-menu button {
+  width: 100%;
+  padding: 11px 12px;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.knowledge-menu button:hover {
+  background: #f3f3f5;
+}
+
+/* Send button */
+.send-button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 19px;
+  background: #18181b;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.send-button:disabled {
+  background: #a1a1aa;
+  cursor: not-allowed;
+}
+
+.send-button:not(:disabled):hover {
+  background: #333338;
+}
+
+/* Disclaimer */
+.chat-disclaimer {
+  flex-shrink: 0;
+  text-align: center;
+  padding: 12px 5px 0;
+  font-size: 12px;
+  color: #92929c;
+}
+
+/* Scrollbar */
+.chat-messages::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+  background: #d5d5da;
+  border-radius: 10px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .project-intelligence {
+    padding: 14px 12px 8px;
+  }
+
+  .intelligence-header h1 {
+    font-size: 24px;
+  }
+
+  .intelligence-header p {
+    font-size: 13px;
+  }
+
+  .chat-header {
+    padding: 0 15px;
+    height: 72px;
+    min-height: 72px;
+  }
+
+  .chat-messages {
+    padding: 18px 12px;
+  }
+
+  .message-bubble {
+    max-width: 88%;
+    font-size: 14px;
+    padding: 12px 14px;
+  }
+
+  .chat-composer {
+    padding: 12px 12px 10px;
+  }
+
+  .knowledge-button {
+    font-size: 12px;
+    gap: 5px;
+  }
+
+  .send-button {
+    padding: 10px 13px;
+  }
+}
