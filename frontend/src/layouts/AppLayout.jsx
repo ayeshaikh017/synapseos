@@ -2,7 +2,8 @@ import {
   LayoutDashboard,
   FolderKanban,
   CheckSquare,
-  Layers3,
+  Layers3,
+
   ChartColumn,
   FileText,
   Video,
@@ -11,8 +12,11 @@ import {
   Sparkles,
   Settings,
   UserRound,
+  LogOut,
 } from "lucide-react";
-import { NavLink } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { useNotifications } from "../context/NotificationContext";
 
 const workspaceItems = [
   {
@@ -78,6 +82,8 @@ const intelligenceItems = [
 
 function NavigationItem({ item }) {
   const Icon = item.icon;
+  const { unreadCount } = useNotifications();
+  const badge = item.path === "/notifications" ? unreadCount : 0;
 
   return (
     <NavLink
@@ -91,7 +97,12 @@ function NavigationItem({ item }) {
       }
     >
       <Icon size={17} strokeWidth={1.8} />
-      <span>{item.label}</span>
+      <span className="flex-1">{item.label}</span>
+      {badge > 0 && (
+        <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
+          {badge > 99 ? "99+" : badge}
+        </span>
+      )}
     </NavLink>
   );
 }
@@ -131,6 +142,18 @@ function BottomNavigationItem({ to, icon: Icon, children }) {
 }
 
 function AppLayout({ children }) {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const { unreadCount } = useNotifications();
+  const displayName = user?.name || "User";
+  const initials =
+    displayName.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join("") || "U";
+  const handleLogout = () => {
+    logout();
+    navigate("/login", { replace: true });
+  };
+  const roleLabel = user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : "Member";
+
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900">
       <div className="flex min-h-screen">
@@ -188,6 +211,15 @@ function AppLayout({ children }) {
               >
                 Profile
               </BottomNavigationItem>
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50"
+              >
+                <LogOut size={17} strokeWidth={1.8} />
+                <span>Logout</span>
+              </button>
             </div>
           </div>
         </aside>
@@ -214,28 +246,48 @@ function AppLayout({ children }) {
             {/* Right side */}
             <div className="ml-4 flex items-center gap-3">
               {/* Notifications */}
-              <button
-                type="button"
+              <Link
+                to="/notifications"
+                aria-label={
+                  unreadCount > 0
+                    ? `Notifications (${unreadCount} unread)`
+                    : "Notifications"
+                }
+                title="Notifications"
                 className="relative rounded-lg p-2 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"
               >
                 <Bell size={18} strokeWidth={1.8} />
 
-                <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-zinc-900" />
-              </button>
+                {unreadCount > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-semibold leading-none text-white">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
+              </Link>
 
               {/* Profile */}
               <div className="flex items-center gap-3 border-l border-zinc-200 pl-3">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-900 text-xs font-semibold text-white">
-                  SP
+                  {initials}
                 </div>
+
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  title="Logout"
+                  aria-label="Logout"
+                  className="rounded-lg p-2 text-zinc-500 transition hover:bg-red-50 hover:text-red-600"
+                >
+                  <LogOut size={18} strokeWidth={1.8} />
+                </button>
 
                 <div className="hidden text-left sm:block">
                   <p className="text-sm font-medium text-zinc-900">
-                    Shivangee
+                    {displayName}
                   </p>
 
                   <p className="text-[11px] text-zinc-400">
-                    Member
+                    {roleLabel}
                   </p>
                 </div>
               </div>
